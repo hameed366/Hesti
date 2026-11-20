@@ -1,0 +1,32 @@
+name: Import Hessati projects
+on:
+  push:
+    branches:
+      - hessati-import-20261120
+    paths:
+      - .hessati-upload/ready
+permissions:
+  contents: write
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify and import projects
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .hessati-upload/part-* > "$RUNNER_TEMP/hessati.tar.gz"
+          echo "bc5bda430a0a29faa51f7a250f3c039fceab96b21eb167daae223cc343d91b48  $RUNNER_TEMP/hessati.tar.gz" | sha256sum -c -
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "66661e7fba84ea1e60a45cd363a9585308ec449f"
+          git checkout -B main origin/main
+          tar -xzf "$RUNNER_TEMP/hessati.tar.gz"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Add Hessati Flutter and iOS projects"
+          git push origin HEAD:main
+          git push origin --delete hessati-import-20261120
