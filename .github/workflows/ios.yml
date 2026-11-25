@@ -1,0 +1,35 @@
+name: بناء تطبيق آيفون (محاكي Xcode)
+
+# هذا البناء يتحقق أن مشروع الآيفون يُترجم ويُنتج App.app للمحاكي.
+# للتثبيت على آيفون حقيقي أو TestFlight تحتاج حساب Apple Developer وتوقيعاً (انظر README).
+on:
+  workflow_dispatch:
+
+jobs:
+  simulator:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: node scripts/build.mjs --vendor
+      - run: npx cap add ios
+      - name: توليد الأيقونة وشاشة البداية
+        run: >
+          npx capacitor-assets generate --ios
+          --iconBackgroundColor '#2159c4' --iconBackgroundColorDark '#16243f'
+          --splashBackgroundColor '#f4f6f9' --splashBackgroundColorDark '#0f1522'
+      - run: npx cap sync ios
+      - name: بناء للمحاكي (بدون توقيع)
+        run: |
+          if [ -d ios/App/App.xcworkspace ]; then TARGET="-workspace ios/App/App.xcworkspace"; else TARGET="-project ios/App/App.xcodeproj"; fi
+          xcodebuild $TARGET -scheme App -configuration Debug -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO build
+          cd build/Build/Products/Debug-iphonesimulator && zip -qry "$GITHUB_WORKSPACE/App-simulator.zip" App.app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hessati-ios-simulator
+          path: App-simulator.zip
